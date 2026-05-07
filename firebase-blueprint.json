@@ -1,0 +1,39 @@
+{
+  "entities": {
+    "Student": {
+      "title": "Student",
+      "description": "A student registered in the school.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Full name of the student" },
+        "class": { "type": "string", "description": "Class or Year of the student" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string", "description": "UID of the admin who registered the student" }
+      },
+      "required": ["name", "class", "createdAt", "createdBy"]
+    },
+    "Grade": {
+      "title": "Grade",
+      "description": "A mark assigned to a student for a subject.",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string", "description": "ID of the student" },
+        "subject": { "type": "string", "description": "The course or subject name" },
+        "mark": { "type": "integer", "description": "The score obtained" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string", "description": "UID of the admin who entered the grade" }
+      },
+      "required": ["studentId", "subject", "mark", "createdAt", "createdBy"]
+    }
+  },
+  "firestore": {
+    "/students/{studentId}": {
+      "schema": "Student",
+      "description": "Collection of students."
+    },
+    "/grades/{gradeId}": {
+      "schema": "Grade",
+      "description": "Collection of grades."
+    }
+  }
+}

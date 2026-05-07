@@ -1,0 +1,83 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net: Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helper Primitives ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Students Collection ---
+    match /students/{studentId} {
+      function isValidStudent(data) {
+        return data.name is string && data.name.size() > 0 && data.name.size() <= 200 &&
+               data.class is string && data.class.size() > 0 && data.class.size() <= 50 &&
+               data.createdAt == request.time &&
+               data.createdBy == request.auth.uid &&
+               data.keys().hasAll(['name', 'class', 'createdAt', 'createdBy']) &&
+               data.keys().size() == 4;
+      }
+
+      allow get: if isVerified();
+      allow list: if isVerified(); // In a real app, maybe filter by createdBy, but here it's shared admin tool
+      
+      allow create: if isVerified() && isValidId(studentId) && isValidStudent(incoming());
+      
+      allow update: if isVerified() && 
+                      incoming().createdAt == existing().createdAt &&
+                      incoming().createdBy == existing().createdBy &&
+                      isValidStudent(incoming()) &&
+                      incoming().diff(existing()).affectedKeys().hasOnly(['name', 'class']);
+      
+      allow delete: if isVerified();
+    }
+
+    // --- Grades Collection ---
+    match /grades/{gradeId} {
+      function isValidGrade(data) {
+        return data.studentId is string && isValidId(data.studentId) &&
+               data.subject is string && data.subject.size() > 0 && data.subject.size() <= 100 &&
+               data.mark is int && data.mark >= 0 && data.mark <= 100 &&
+               data.createdAt == request.time &&
+               data.createdBy == request.auth.uid &&
+               data.keys().hasAll(['studentId', 'subject', 'mark', 'createdAt', 'createdBy']) &&
+               data.keys().size() == 5;
+      }
+
+      allow get: if isVerified();
+      allow list: if isVerified();
+
+      allow create: if isVerified() && isValidId(gradeId) && isValidGrade(incoming()) &&
+                      exists(/databases/$(database)/documents/students/$(incoming().studentId));
+      
+      allow update: if isVerified() &&
+                      incoming().studentId == existing().studentId &&
+                      incoming().createdAt == existing().createdAt &&
+                      incoming().createdBy == existing().createdBy &&
+                      isValidGrade(incoming()) &&
+                      incoming().diff(existing()).affectedKeys().hasOnly(['subject', 'mark']);
+      
+      allow delete: if isVerified();
+    }
+  }
+}
